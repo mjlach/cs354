@@ -1,0 +1,1 @@
+The Verilog implementaton is now correct. All operations and outputs work properly, as shown in the simulation output. The diagrams are good (a small inconsistency, the Bnegate multiplexer in the diagrams is an XOR gate in the code). There is no description of the operations, operation codes, inputs and outputs (submission item #1)
