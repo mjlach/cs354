@@ -1,0 +1,45 @@
+/* Project 2: Binvert Mux for Y input in Verilog HDL
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* Multiplexer Module */
+module mux2_1(Out,Binvert,Y);
+    // output followed by inputs
+    input Y, Binvert;
+    output Out;
+//    wire W1,W2,Yprime;
+    
+    xor (Out,Y,Binvert);
+    
+//    and (W1,Binvert,Y), (W2,Binvert,Yprime);
+        // output followed by inputs
+//    not (Yprime,Y);
+        // output then input
+//    or (Out,W1,W2);
+        // output then inputs
+endmodule
+
+
+/* Test module */
+module test;
+   reg Binvert,Y;       // registers for inputs
+   wire Out;          // output wire for final sum
+   mux2_1 mux(.Out(Out),.Binvert(Binvert),.Y(Y));   // Instantiate multiplexer 'mux'
+   
+   initial
+     begin
+       $monitor(" %b    %b      %b",Y,Binvert,Out);  // prints/outputs values as they change
+       $display(" Y Binvert Out");
+       Y=1'b0;
+       Binvert=1'b0;
+       #10
+       Binvert=1'b1;
+       #10
+       Y=1'b1;
+       Binvert=1'b0;
+       #10
+       Binvert=1'b1;
+     end
+endmodule
