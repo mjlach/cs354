@@ -1,0 +1,387 @@
+/*  Project 3 - CPU
+    v4 - Control module
+    Programmer: mjlac
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+// Imported code from Project 2: Gate-Level ALU
+/* Half Adder module detail */
+module halfadder (S,C,x,y); // Outputs, then inputs
+   input x,y;
+   output S,C;  // Sum & Carry
+// Instantiate primitive gates
+   xor (S,x,y);
+   and (C,x,y);
+endmodule
+
+/* Full Adder module detail */
+module fulladder (S,C,x,y,z);   // outputs, then inputs
+   input x,y,z;
+   output S,C;  // Sum & Carry
+   wire S1,D1,D2; // Outputs of first XOR and two AND gates
+// Instantiate the halfadders
+    halfadder HA1 (S1,D1,x,y),
+              HA2 (S,D2,S1,z);
+    or g1(C,D2,D1);
+endmodule
+
+/* Multiplexer Module */
+module mux4_1 (i0,i1,i2,i3,Opcode,y);
+   input i0,i1,i2,i3;
+   input [1:0] Opcode;
+   output y;
+   
+   not (Op1_prime,Opcode[1]),
+       (Op0_prime,Opcode[0]);
+       
+   and (a0,i0,Op1_prime,Op0_prime),
+       (a1,i1,Op1_prime,Opcode[0]),
+       (a2,i2,Opcode[1],Op0_prime),
+       (a3,i3,Opcode[1],Opcode[0]);
+   or (y,a0,a1,a2,a3);
+endmodule
+
+/* ALU submodule intended for ALU0, ALU1, & ALU2 */
+module ALUsub (A,B,b_negate,op,less,C_in,Out,C_out);
+  input A,B,less,b_negate,C_in;
+  input [1:0] op;
+  output Out,C_out;
+  wire b_invert,W_and,W_or,add;
+  
+  xor (b_invert,b_negate,B);
+  and (W_and,A,b_invert);
+  or (W_or,A,b_invert);
+  fulladder FA (add,C_out,A,b_invert,C_in);
+  mux4_1 mux (W_and,W_or,add,less,op,Out);
+endmodule
+
+/* ALU LSB intended for ALU3 */
+module ALUlsb (A,B,b_negate,op,less,C_in,Out,C_out,set);
+  input A,B,b_negate,less,C_in;
+  input [1:0] op;
+  output Out,C_out,set;
+  wire b_invt,W_and,W_or,add,set,overflow;
+  
+  xor (b_invt,b_negate,B);
+  and (W_and,A,b_invt);
+  or (W_or,A,b_invt);
+  fulladder FA (add,C_out,A,b_invt,C_in);
+  mux4_1 mux (W_and,W_or,add,less,op,Out);
+  and (set,add,add);
+  xor(overflow,C_in,C_out);
+endmodule
+
+/* 4-bit ALU Master */
+module ALUmaster (ALUctl, A, B, Result/*, zero, overflow*/);        // Commented out for parity with existing CPU package
+  input [2:0] ALUctl;
+  input [3:0] A,B;
+  output [3:0] Result;
+  output zero,overflow;
+  wire C_out0,C_out1,C_out2,C_out3,set,OF;
+  
+     ALUsub ALU0 (A[0],B[0],ALUctl[2],ALUctl[1:0],set,ALUctl[2],Result[0],C_out0);
+     ALUsub ALU1 (A[1],B[1],ALUctl[2],ALUctl[1:0],1'b0,C_out0,Result[1],C_out1);
+     ALUsub ALU2 (A[2],B[2],ALUctl[2],ALUctl[1:0],1'b0,C_out1,Result[2],C_out2);
+     ALUlsb ALU3 (A[3],B[3],ALUctl[2],ALUctl[1:0],1'b0,C_out2,Result[3],C_out3,set);
+     
+     // Zero calculation
+     nor (zero,Result[0],Result[1],Result[2],Result[3]);    // wire copies of 4 ALU subs
+     // Overflow accounting
+     xor (OF,C_out2,C_out3);
+     and (overflow,ALUctl[1],OF);
+endmodule
+// end: inserted code from Project 2 for gate-level ALU
+
+/* CPU module: DO NOT MODIFY!! */
+module cpu (Instruction, WriteData, CLK);
+   input [8:0] Instruction;
+   input CLK;
+   output [3:0] WriteData;
+   wire [8:0] IR;
+   wire [3:0] A,B,Result;
+   wire [2:0] ALUctl;
+   instr_reg instr(Instruction,IR,CLK);
+   control ctl (IR[8:6],Sel,ALUctl);
+   quad2x1mux mux(IR[5:2],Result,Sel,WriteData);
+   regfile regs(IR[5:4],IR[3:2],IR[1:0],WriteData,A,B,CLK);
+   ALU alu (ALUctl, A, B, Result);
+endmodule
+// DO NOT change ANY code above this line!!!!
+
+// Import: D flip-flop & D latch from notes
+module D_flip_flop(D,CLK,Q);
+   input D,CLK;
+   output Q;
+   wire CLK1, Y;
+   not  not1 (CLK1,CLK);
+   D_latch D1(D,CLK, Y),
+           D2(Y,CLK1,Q);
+endmodule
+
+module D_latch(D,C,Q);
+   input D,C;
+   output Q;
+   wire x,y,D1,Q1;
+   nand nand1 (x,D, C),
+        nand2 (y,D1,C),
+        nand3 (Q,x,Q1),
+        nand4 (Q1,y,Q);
+   not  not1  (D1,D);
+endmodule
+// end: imported D flip-flop & D latch
+
+/* Instruction Register */
+module instr_reg (Instruction,IR,CLK);
+   input [8:0] Instruction;
+   input CLK;
+   output [8:0] IR;
+    // call to Flip-flop module (D-value, Clock, Q-value)
+    D_flip_flop d0 (Instruction[0],CLK,IR[0]),
+                d1 (Instruction[1],CLK,IR[1]),
+                d2 (Instruction[2],CLK,IR[2]),
+                d3 (Instruction[3],CLK,IR[3]),
+                d4 (Instruction[4],CLK,IR[4]),
+                d5 (Instruction[5],CLK,IR[5]),
+                d6 (Instruction[6],CLK,IR[6]),
+                d7 (Instruction[7],CLK,IR[7]),
+                d8 (Instruction[8],CLK,IR[8]);
+endmodule
+    // test good
+
+/* Control module */
+module control (OP,Sel,ALUctl);
+  input [2:0] OP;
+  output Sel;
+  nand n0 (Sel,OP[2],OP[0]);    // test good with other behavioral code
+/* Replace the following with gate-level code
+  output reg [2:0] ALUctl;
+  always @(OP) case (OP)
+    3'b000: {Sel,ALUctl} = 4'b1010; // ADD
+    3'b001: {Sel,ALUctl} = 4'b1110; // SUB
+    3'b010: {Sel,ALUctl} = 4'b1000; // AND
+    3'b011: {Sel,ALUctl} = 4'b1001; // OR
+    3'b100: {Sel,ALUctl} = 4'b1111; // SLT
+    3'b101: {Sel,ALUctl} = 4'b0000; // LI */
+    
+// functional behavioral implementation
+  output reg [2:0] ALUctl;
+  always @(OP) case (OP)
+    3'b000: {ALUctl} = 3'b010; // ADD
+    3'b001: {ALUctl} = 3'b110; // SUB
+    3'b010: {ALUctl} = 3'b000; // AND
+    3'b011: {ALUctl} = 3'b001; // OR
+    3'b100: {ALUctl} = 3'b111; // SLT
+    3'b101: {ALUctl} = 3'b000; // LI
+    // Note: modified by removing MSB (formerly Sel)
+  endcase
+endmodule
+    // test good but incomplete implementation at the gate-level
+
+/* Quad 2x1 multiplexor */
+module quad2x1mux (I0,I1,Sel,Out);
+  input [3:0] I0,I1;
+  input Sel;
+  output [3:0] Out;
+  wire Wa0_0,Wa0_1,Wa0_2,Wa0_3,Wa1_0,Wa1_1,Wa1_2,Wa1_3,S_prime;
+    not (S_prime,Sel);
+    and a0_0 (Wa0_0,I0[0],S_prime),
+        a0_1 (Wa0_1,I0[1],S_prime),
+        a0_2 (Wa0_2,I0[2],S_prime),
+        a0_3 (Wa0_3,I0[3],S_prime),
+        
+        a1_0 (Wa1_0,I1[0],Sel),
+        a1_1 (Wa1_1,I1[1],Sel),
+        a1_2 (Wa1_2,I1[2],Sel),
+        a1_3 (Wa1_3,I1[3],Sel);
+        
+    or or0 (Out[0],Wa1_0,Wa0_0),
+       or1 (Out[1],Wa1_1,Wa0_1),
+       or2 (Out[2],Wa1_2,Wa0_2), 
+       or3 (Out[3],Wa1_3,Wa0_3);
+endmodule
+    // tested good!
+
+/* Provided code: Do not modify unless attempting Extra Credit */
+module regfile (ReadReg1,ReadReg2,WriteReg,WriteData,ReadData1,ReadData2,CLK);
+  input [1:0] ReadReg1,ReadReg2,WriteReg;
+  input [3:0] WriteData;
+  input CLK;
+  output [3:0] ReadData1,ReadData2;
+  reg [3:0] Regs[0:3]; 
+  assign ReadData1 = Regs[ReadReg1];
+  assign ReadData2 = Regs[ReadReg2];
+  initial Regs[0] = 0;
+  always @(negedge CLK)
+     Regs[WriteReg] = WriteData;
+endmodule
+// end: provided Register file module
+
+/* provided ALU module - behavioral (comment this module out)
+module ALU (ALUctl, A, B, ALUOut);
+  input [2:0] ALUctl;
+  input [3:0] A,B;
+  output reg [3:0] ALUOut;
+  output Zero,Overflow;
+  always @(ALUctl, A, B) //re-evaluate if these change
+  case (ALUctl)
+    3'b000: ALUOut <= A & B;
+    3'b001: ALUOut <= A | B;
+    3'b010: ALUOut <= A + B;
+    3'b110: ALUOut <= A - B;
+    3'b111: ALUOut <= A < B ? 1:0;
+   endcase
+endmodule */
+
+/* Testbench module */
+module test_cpu;
+   reg [8:0] Instruction;
+   reg CLK;
+   wire [3:0] WriteData;
+   cpu cpu1 (Instruction, WriteData, CLK);
+   initial
+   begin
+     $display("\nCLK Instruction WriteData\n-------------------------"); 
+     $monitor("%b   %b   %d (%b)", CLK,Instruction,WriteData,WriteData);
+     #1 Instruction = 9'b101_0111_01; // li $1, 7 # $1 = 7 -- OurFormat == operation__value(7)__register($1)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b101_0101_10; // li $2, 5 # $2 = 5 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b001_01_10_11; // sub $3, $1, $2 # $3 = 2 -- OurFormat == operation__src1($1)__src2($2)__destination($3)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b101_1010_11; // li $t3, 10 # $t3 = 10 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b011_10_11_10; // or $t2, $t2, $t3 # $t2 = 15 -- OurFormat == operation__src1($t2)__src2($t3)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b010_10_11_11; // and $t3, $t2, $t3 # $t3 = 10 -- OurFormat == operation__src1($t2)__src2($t3)__destination($t3)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b100_11_10_10; // slt $t2, $t3, $t2   # $t2 = 1 -- OurFormat == operation__src1($t3)__src2($t2)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b000_11_10_10; // add $t2, $t3, $t2   # $t2 = 11 (b1011 = -5) -- OurFormat == operation__src1($t3)__src2($t2)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b000_01_10_11; // add $t3, $t1, $t2  # $t3 = 2 (7+(-5)=2) -- OurFormat == operation__src1($t1)__src2($t2)__destination($t3) 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b100_10_11_01; // slt $t1, $t2, $t3   # $t1 = 0 (behavioral) or 1 (gate-level)
+        CLK=1;                  //  -- OurFormat == operation__src1($t2)__src2($t3)__destination($t1)
+     #1 CLK=0; // Negative edge - execute instruction 
+   end
+endmodule
+
+/* Original test bench results with full instruction set: 
+
+CLK Instruction WriteData
+-------------------------
+x   xxxxxxxxx    x (xxxx)
+1   101011101    x (xxxx)
+0   101011101    7 (0111)
+1   101010110    7 (0111)
+0   101010110    5 (0101)
+1   001011011    5 (0101)
+0   001011011    2 (0010)
+1   101101011    2 (0010)
+0   101101011   10 (1010)
+1   011101110   10 (1010)
+0   011101110   15 (1111)
+1   010101111   15 (1111)
+0   010101111   10 (1010)
+1   100111010   10 (1010)
+0   100111010    1 (0001)
+1   000111010    1 (0001)
+0   000111010   11 (1011)
+1   000011011   11 (1011)
+0   000011011    2 (0010)
+1   100101101    2 (0010)
+0   100101101    0 (0000)   // note: using Behavioral ALU */
+
+/* v1 Test bench results (with D flip-flops): 
+
+CLK Instruction WriteData
+-------------------------
+x   xxxxxxxxx    x (xxxx)
+1   101011101    x (xxxx)
+0   101011101    7 (0111)
+1   101010110    7 (0111)
+0   101010110    5 (0101)
+1   001011011    5 (0101)
+0   001011011    2 (0010)
+1   101101011    2 (0010)
+0   101101011   10 (1010)
+1   011101110   10 (1010)
+0   011101110   15 (1111)
+1   010101111   15 (1111)
+0   010101111   10 (1010)
+1   100111010   10 (1010)
+0   100111010    1 (0001)
+1   000111010    1 (0001)
+0   000111010   11 (1011)
+1   000011011   11 (1011)
+0   000011011    2 (0010)
+1   100101101    2 (0010)
+0   100101101    0 (0000)   // note: using Behavioral ALU
+
+--Good test! Proceed! */
+
+/* v2 Test bench results (with quad2x1mux):
+
+CLK Instruction WriteData
+-------------------------
+x   xxxxxxxxx    x (xxxx)
+1   101011101    x (xxxx)
+0   101011101    7 (0111)
+1   101010110    7 (0111)
+0   101010110    5 (0101)
+1   001011011    5 (0101)
+0   001011011    2 (0010)
+1   101101011    2 (0010)
+0   101101011   10 (1010)
+1   011101110   10 (1010)
+0   011101110   15 (1111)
+1   010101111   15 (1111)
+0   010101111   10 (1010)
+1   100111010   10 (1010)
+0   100111010    1 (0001)
+1   000111010    1 (0001)
+0   000111010   11 (1011)
+1   000011011   11 (1011)
+0   000011011    2 (0010)
+1   100101101    2 (0010)
+0   100101101    0 (0000)   // note: using Behavioral ALU 
+
+--Good test! Proceed! */
+
+/* v3 Test bench results (with Project 2 ALU):
+
+CLK Instruction WriteData
+-------------------------
+x   xxxxxxxxx    x (xxxx)
+1   101011101    x (xxxx)
+0   101011101    7 (0111)
+1   101010110    7 (0111)
+0   101010110    5 (0101)
+1   001011011    5 (0101)
+0   001011011    2 (0010)
+1   101101011    2 (0010)
+0   101101011   10 (1010)
+1   011101110   10 (1010)
+0   011101110   15 (1111)
+1   010101111   15 (1111)
+0   010101111   10 (1010)
+1   100111010   10 (1010)
+0   100111010    1 (0001)
+1   000111010    1 (0001)
+0   000111010   11 (1011)
+1   000011011   11 (1011)
+0   000011011    2 (0010)
+1   100101101    2 (0010)
+0   100101101    1 (0001)   // Expected result with Gate-Level ALU!!
+
+--Good test! Proceed! */
