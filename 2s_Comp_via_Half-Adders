@@ -62,3 +62,8 @@ module test;
         #1  x = 3'b111;
     end
 endmodule;
+
+/* Instructor Feedback:
+
+The implementation is correct, but uses an incorrect half adder module (not the correct one in circuit 2) and produces wrong output
+*/
