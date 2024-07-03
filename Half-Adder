@@ -1,0 +1,42 @@
+/* Project 1 Part 2: 1-Half Adder in Verilog HDL
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* Half Adder Module */
+module half_adder(A, B, S, C);
+    input A,B;
+    output S,C;
+    xor (S, A, B);
+    and (C, A, B);
+endmodule
+
+/* Test module */
+module test;
+   reg A, B;
+   wire S, C;
+   
+   half_adder ha(A, B, S, C); // instantiate module for testing
+
+   initial
+    begin
+    $monitor(" %b %b %b %b",A,B,S,C);   // will print each time inputs change
+    $display(" A B S C");   // banner for output display
+        A = 1'b0;
+        B = 1'b0;
+        #10     // delay
+        
+        A = 1'b0;
+        B = 1'b1;
+        #10     // delay
+        
+        A = 1'b1;
+        B = 1'b0;
+        #10     // delay
+        
+        A = 1'b1;
+        B = 1'b1;
+        
+     end
+endmodule
