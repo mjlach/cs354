@@ -1,0 +1,35 @@
+/* Half-Adder Example, Gate-Level */
+
+module my_xor(A,B,C);
+   input A,B;
+   output C;
+   wire x,y,z;
+   nand g1 (x,A,B),
+        g2 (y,A,x),
+        g3 (z,x,B),
+        g4 (C,y,z);
+endmodule
+
+module half_adder(A,B,S,C);
+    input A,B;
+    output S,C;
+    xor x1 (S,A,B); // oddly enough, doesn't highlight the gate type
+    and a1 (C,A,B);
+    // good coding design to indent body of module for legibility
+endmodule
+
+module test;
+   reg A,B;     // reg for inputs
+   wire S,C;    // wire for outputs
+   half_adder ha(A,B,S,C); // Instantiate half-adder 'ha'
+   initial
+     begin
+       $monitor(" %b %b %b %b",A,B,S,C);
+            /* $time is a predefined variable that starts at zero and our code is set to output it as decimal */
+       $display(" A B S C");
+          A=0; B=0; 
+       #1 A=0; B=1;
+       #1 A=1; B=0;
+       #1 A=1; B=1;
+     end
+endmodule
