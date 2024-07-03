@@ -1,0 +1,54 @@
+/* Project 1 Part 4: Two's Comp via boolean expressions in Verilog HDL
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+// Half Adder Module
+module half_adder(A,B,S,C);
+    input A,B;
+    output S,C;
+    xnor x1 (S,A,B);
+    nand a1 (C,A,B);
+    // good coding design to indent body of module for legibility
+endmodule
+
+// Incrementer Module containing 3x Half Adders
+module inc(A,S);
+    input [2:0] A;      // this is our syntax to specify indices of A; this is a Vector in Verilog
+    output [2:0] S;     // note the similarity to specifying an Array size in Java EXCEPT our Array caller is behind the indices
+        // Note that this follows Big Endian LSB for binary wherein the least significant is at the right
+        
+    // removed NOT operator from problem3 code to implement problem4
+    half_adder HA0 (A[0],1'b0,S[0],C0);
+    half_adder HA1 (A[1],C0,  S[1],C1);
+    half_adder HA2 (A[2],C1,  S[2],C2);
+endmodule
+
+// Tester
+module test;
+   reg [2:0] A;     // register for 3-bit inputs
+   wire [2:0] S;    // wire for sum of outputs
+   inc inc1(A,S);   // Instantiate incrementer 'inc1'
+   
+   initial
+     begin
+       $monitor(" %b %b    %d    %d",A,S,A,S);  // prints/outputs values as they change
+       $display("  A   S   A(d) S(d)");
+       A = 0;
+       #10
+       A = 1;
+       #10
+       A = 2;
+       #10
+       A = 3;
+       #10
+       A = 4;
+       #10
+       A = 5;
+       #10
+       A = 6;
+       #10
+       A = 7;
+     end
+endmodule
