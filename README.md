@@ -1,2 +1,3 @@
 # cs354
-Digital_Systems_Design
+
+Coding projects from Digital Systems Design Course
