@@ -1,0 +1,16 @@
+// Behavioral description of 2-to-1-line multiplexer
+
+module mux2x1_bh(A,B,select,OUT);
+   input A,B,select;
+   output OUT;
+   reg OUT;
+   always @ (select or A or B)
+         if (select == 1) OUT = A;
+         else OUT = B;
+endmodule
+
+/* We need registers for the output and we need to assign values. Very similar to how we program in Java but these would be ONE-TIME assignments in Java
+
+What does that mean? In this example, we utilize an If-Else statement in order to indicate the Output of the module.
+
+The 'always' statement takes inputs as its parameters. This specifically is re-running the statement any time one of the parameters changes (such as when we pass values within our test bench module */
