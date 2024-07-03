@@ -1,0 +1,182 @@
+/*  Project 3 - CPU
+    Initial Build Attempt
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* CPU module: DO NOT MODIFY!! */
+module cpu (Instruction, WriteData, CLK);
+   input [8:0] Instruction;
+   input CLK;
+   output [3:0] WriteData;
+   wire [8:0] IR;
+   wire [3:0] A,B,Result;
+   wire [2:0] ALUctl;
+   instr_reg instr(Instruction,IR,CLK);
+   control ctl (IR[8:6],Sel,ALUctl);
+   quad2x1mux mux(IR[5:2],Result,Sel,WriteData);
+   regfile regs(IR[5:4],IR[3:2],IR[1:0],WriteData,A,B,CLK);
+   ALU alu (ALUctl, A, B, Result);
+endmodule
+// DO NOT change ANY code above this line!!!!
+
+// Import: D flip-flop & D latch
+module D_flip_flop(D,CLK,Q);
+   input D,CLK;
+   output Q;
+   wire CLK1, Y;
+   not  not1 (CLK1,CLK);
+   D_latch D1(D,CLK, Y),
+           D2(Y,CLK1,Q);
+endmodule
+
+module D_latch(D,C,Q);
+   input D,C;
+   output Q;
+   wire x,y,D1,Q1;
+   nand nand1 (x,D, C),
+        nand2 (y,D1,C),
+        nand3 (Q,x,Q1),
+        nand4 (Q1,y,Q);
+   not  not1  (D1,D);
+endmodule
+// end: imported D flip-flop & D latch
+
+/* Instruction Register */
+module instr_reg (Instruction,IR,CLK);
+   input [8:0] Instruction;
+   input CLK;
+   output [8:0] IR;
+    // call to Flip-flop module (D-value, Clock, Q-value)
+    
+    D_flip_flop d0 (Instruction[0],CLK,IR[0]),
+                d1 (Instruction[1],CLK,IR[1]),
+                d2 (Instruction[2],CLK,IR[2]),
+                d3 (Instruction[3],CLK,IR[3]),
+                d4 (Instruction[4],CLK,IR[4]),
+                d5 (Instruction[5],CLK,IR[5]),
+                d6 (Instruction[6],CLK,IR[6]),
+                d7 (Instruction[7],CLK,IR[7]),
+                d8 (Instruction[8],CLK,IR[8]);
+endmodule
+    // test good
+
+module control (OP,Sel,ALUctl);
+  input [2:0] OP;
+// Replace the following with gate-level code
+  output reg Sel;
+  output reg [2:0] ALUctl;
+  always @(OP) case (OP)
+    3'b000: {Sel,ALUctl} = 4'b1010; // ADD
+    3'b001: {Sel,ALUctl} = 4'b1110; // SUB
+    3'b010: {Sel,ALUctl} = 4'b1000; // AND
+    3'b011: {Sel,ALUctl} = 4'b1001; // OR
+    3'b100: {Sel,ALUctl} = 4'b1111; // SLT
+    3'b101: {Sel,ALUctl} = 4'b0000; // LI
+  endcase
+endmodule
+
+module quad2x1mux (I0,I1,Sel,Out);
+  input [3:0] I0,I1;
+  input Sel;
+  output [3:0] Out;
+// Replace the following with gate-level code
+  assign Out = (Sel)? I1: I0;
+endmodule
+
+module regfile (ReadReg1,ReadReg2,WriteReg,WriteData,ReadData1,ReadData2,CLK);
+  input [1:0] ReadReg1,ReadReg2,WriteReg;
+  input [3:0] WriteData;
+  input CLK;
+  output [3:0] ReadData1,ReadData2;
+  reg [3:0] Regs[0:3]; 
+  assign ReadData1 = Regs[ReadReg1];
+  assign ReadData2 = Regs[ReadReg2];
+  initial Regs[0] = 0;
+  always @(negedge CLK)
+     Regs[WriteReg] = WriteData;
+endmodule
+
+module ALU (ALUctl, A, B, ALUOut);
+  input [2:0] ALUctl;
+  input [3:0] A,B;
+  output reg [3:0] ALUOut;
+  output Zero,Overflow;
+  always @(ALUctl, A, B) //re-evaluate if these change
+  case (ALUctl)
+    3'b000: ALUOut <= A & B;
+    3'b001: ALUOut <= A | B;
+    3'b010: ALUOut <= A + B;
+    3'b110: ALUOut <= A - B;
+    3'b111: ALUOut <= A < B ? 1:0;
+   endcase
+endmodule
+
+module test_cpu;
+   reg [8:0] Instruction;
+   reg CLK;
+   wire [3:0] WriteData;
+   cpu cpu1 (Instruction, WriteData, CLK);
+   initial
+   begin
+     $display("\nCLK Instruction WriteData\n-------------------------"); 
+     $monitor("%b   %b   %d (%b)", CLK,Instruction,WriteData,WriteData);
+     #1 Instruction = 9'b101_0111_01; // li $1, 7 # $1 = 7 -- OurFormat == operation__value(7)__register($1)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b101_0101_10; // li $2, 5 # $2 = 5 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b001_01_10_11; // sub $3, $1, $2 # $3 = 2 -- OurFormat == operation__src1($1)__src2($2)__destination($3)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b101_1010_11; // li $t3, 10 # $t3 = 10 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b011_10_11_10; // or $t2, $t2, $t3 # $t2 = 15 -- OurFormat == operation__src1($t2)__src2($t3)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b010_10_11_11; // and $t3, $t2, $t3 # $t3 = 10 -- OurFormat == operation__src1($t2)__src2($t3)__destination($t3)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b100_11_10_10; // slt $t2, $t3, $t2   # $t2 = 1 -- OurFormat == operation__src1($t3)__src2($t2)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b000_11_10_10; // add $t2, $t3, $t2   # $t2 = 11 (b1011 = -5) -- OurFormat == operation__src1($t3)__src2($t2)__destination($t2)
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction
+     #1 Instruction = 9'b000_01_10_11; // add $t3, $t1, $t2  # $t3 = 2 (7+(-5)=2) -- OurFormat == operation__src1($t1)__src2($t2)__destination($t3) 
+        CLK=1;
+     #1 CLK=0; // Negative edge - execute instruction 
+     #1 Instruction = 9'b100_10_11_01; // slt $t1, $t2, $t3   # $t1 = 0 (behavioral) or 1 (gate-level)
+        CLK=1;                  //  -- OurFormat == operation__src1($t2)__src2($t3)__destination($t1)
+     #1 CLK=0; // Negative edge - execute instruction 
+   end
+endmodule
+
+/* Original test bench results with full instruction set: 
+
+CLK Instruction WriteData
+-------------------------
+x   xxxxxxxxx    x (xxxx)
+1   101011101    x (xxxx)
+0   101011101    7 (0111)
+1   101010110    7 (0111)
+0   101010110    5 (0101)
+1   001011011    5 (0101)
+0   001011011    2 (0010)
+1   101101011    2 (0010)
+0   101101011   10 (1010)
+1   011101110   10 (1010)
+0   011101110   15 (1111)
+1   010101111   15 (1111)
+0   010101111   10 (1010)
+1   100111010   10 (1010)
+0   100111010    1 (0001)
+1   000111010    1 (0001)
+0   000111010   11 (1011)
+1   000011011   11 (1011)
+0   000011011    2 (0010)
+1   100101101    2 (0010)
+0   100101101    0 (0000) */
