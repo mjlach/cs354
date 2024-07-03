@@ -1,0 +1,34 @@
+module my_xor(A,B,C);
+   input A,B;
+   output C;
+   wire x,y,z;
+   nand g1 (x,A,B); /* we can create multiple instantiations of the gate as indicated below */
+   nand g2 (y,A,x),
+        g3 (z,x,B),
+        g4 (C,y,z);
+endmodule
+
+module test;
+reg A,B; // registers A & B, allowing us to assign values
+wire C; // wire connection C
+my_xor x1 (A,B,C);
+initial
+    /* special structure; creates a block of statements
+        We start with 'begin' and finish with 'end'*/
+begin
+/* Optionally, we can use $display instead of $monitor */
+$display("A B C");
+    // used to create a 'table header' like visual for our $monitor output
+//A=0;
+//B=1;
+    /* We can also revamp the assignments in order to perform multiple mappings
+        Requires placing a $display between each of the assignment statements*/
+A=0;B=0;
+A=0;B=1;
+A=1;B=0;
+A=1;B=1;
+$monitor("%b %b %b",A,B,C);
+    // Note that this iteration ONLY shows the most recent assignment
+end
+
+endmodule
