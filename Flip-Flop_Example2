@@ -1,0 +1,55 @@
+module D_flip_flop(D,CLK,Q);
+   input D,CLK;
+   output Q;
+   wire CLK1, Y;
+   not  not1 (CLK1,CLK);    /* inverts CLK and sends to negative edge */
+   D_latch D1(D,CLK, Y),
+           D2(Y,CLK1,Q);
+endmodule
+
+module D_latch(D,C,Q);
+   input D,C;
+   output Q;
+   wire x,y,D1,Q1;
+   nand nand1 (x,D, C),
+        nand2 (y,D1,C),
+        nand3 (Q,x,Q1),
+        nand4 (Q1,y,Q);
+   not  not1  (D1,D);
+endmodule
+
+module test_D_flip_flop;
+reg D,C;
+wire Q;
+
+D_flip_flop D1(D,C,Q);
+
+  initial
+     begin
+           D=0; C=0;
+       #10 D=0; C=1;
+       #10 D=0; C=0;
+       #10 D=1; C=0;
+       #10 D=1; C=1;
+       #10 D=1; C=0;    // changed
+     end
+
+  initial
+     $monitor("%d %b %b %b",$time,D,C,Q);
+
+endmodule
+
+/* Output from JDoodle Verilog IDE:
+
+Added for clarity:   D C Q
+                   0 0 0 x  <-- no state
+                  10 0 1 x  <-- no state
+                  20 0 0 0
+                  30 1 0 0
+                  40 1 1 0
+                  50 1 0 1  <-- changes btwn examples
+                  
+Note the 'x' outputs; these indicate no prior state
+
+This example uses a Negative edge change for the last time state
+*/
