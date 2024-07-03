@@ -1,0 +1,55 @@
+/* Project 1 Part 1: 2x1 Multiplexer or MUX in Verilog HDL
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* Multiplexer Module */
+module mux2_1(Y,A,B,C);
+    // output followed by inputs
+    input A,B,C;
+    output Y;
+    wire W1,W2,Cprime;
+    
+    and (W1,B,C), (W2,A,Cprime);
+        // output followed by inputs
+    not (Cprime,C);
+        // output then input
+    or (Y,W1,W2);
+        // output then inputs
+endmodule
+
+
+/* Test module */
+module test;
+   reg A,B,C;       // registers for inputs
+   wire Y;          // output wire for final sum
+   mux2_1 mux(.Y(Y),.A(A),.B(B),.C(C));   // Instantiate multiplexer 'mux'
+   
+   initial
+     begin
+       $monitor(" %b %b %b %b",A,B,C,Y);  // prints/outputs values as they change
+       $display(" A B C Y");
+       A=1'b0;
+       B=1'b0;
+       C=1'b0;
+       #10
+       C=1'b1;
+       #10  
+       B=1'b1;
+       C=1'b0;
+       #10
+       C=1'b1;
+       #10
+       A=1'b1;
+       B=1'b0;
+       C=1'b0;
+       #10
+       C=1'b1;
+       #10
+       B=1'b1;
+       C=1'b0;
+       #10
+       C=1'b1;
+     end
+endmodule
