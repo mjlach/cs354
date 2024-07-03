@@ -52,3 +52,8 @@ module test;
        A = 7;
      end
 endmodule
+
+/* Instructor feedback:
+
+The truth table, diagram and code for Circuit 4 are irrelevant (none describes or implements a two's complementer)
+*/
