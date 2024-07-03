@@ -1,0 +1,14 @@
+// Dataflow description of 4-bit adder
+
+module binary_adder (A,B,Cin,SUM,Cout);
+   input [3:0] A,B;
+   input Cin;
+   output [3:0] SUM;
+   output Cout;
+   assign {Cout,SUM} = A + B + Cin;
+        /* We combine two variables and detail that combination with arithmetic operators in this example */
+endmodule
+
+/* Nice feature of this modeling style is the ability to mix Boolean as well as Arithmetic operators 
+
+Our 'assign' statement above simulates a 4-bit adder with very minimal lines of code compared to Gate-Level implementation */
