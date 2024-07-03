@@ -1,0 +1,20 @@
+/* Dataflow description of a 2-to-4-line decoder */
+
+// Dataflow implementation of a Decoder
+module decoder_df (A,B,E,D);
+   input A,B,E;
+   output [0:3] D;
+   assign D[0] = ~(~A && ~B && ~E),
+          D[1] = ~(~A && B && ~E),
+          D[2] = ~(A && ~B && ~E),
+          D[3] = ~(A && B && ~E);
+endmodule
+
+/* This coding model allows us to implement Operators rather than explicitly stating Gates to perform boolean operations 
+
+Note that we have some different operators we can use in this style:
+
+. -> &&     AND
++ --> ||    OR
+' --> ~     NOT
+*/
