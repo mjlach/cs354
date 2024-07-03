@@ -1,0 +1,129 @@
+/* Project 2: 4-bit ALU in Verilog HDL (AND, OR, ADD, SUB, SLT operations)
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* Half Adder module detail */
+module halfadder (S,C,x,y); // Outputs, then inputs
+   input x,y;
+   output S,C;  // Sum & Carry
+// Instantiate primitive gates
+   xor (S,x,y);
+   and (C,x,y);
+endmodule
+
+/* Full Adder module detail */
+module fulladder (S,C,x,y,z);   // outputs, then inputs
+   input x,y,z;
+   output S,C;  // Sum & Carry
+   wire S1,D1,D2; // Outputs of first XOR and two AND gates
+// Instantiate the halfadders
+    halfadder HA1 (S1,D1,x,y),
+              HA2 (S,D2,S1,z);
+    or g1(C,D2,D1);
+endmodule
+
+/* Multiplexer Module */
+module mux4_1 (i0,i1,i2,i3,Opcode,y);
+   input i0,i1,i2,i3;
+   input [1:0] Opcode;
+   output y;
+   
+   not (Op1_prime,Opcode[1]),
+       (Op0_prime,Opcode[0]);
+       
+   and (a0,i0,Op1_prime,Op0_prime),
+       (a1,i1,Op1_prime,Opcode[0]),
+       (a2,i2,Opcode[1],Op0_prime),
+       (a3,i3,Opcode[1],Opcode[0]);
+   or (y,a0,a1,a2,a3);
+endmodule
+
+/* ALU submodule intended for ALU0, ALU1, & ALU2 */
+module ALUsub (A,B,b_negate,op,less,C_in,Out,C_out);
+  input A,B,less,b_negate,C_in;
+  input [1:0] op;
+  output Out,C_out;
+  wire b_invert,W_and,W_or,add;
+  
+  xor (b_invert,b_negate,B);
+  and (W_and,A,b_invert);
+  or (W_or,A,b_invert);
+  fulladder FA (add,C_out,A,b_invert,C_in);
+  mux4_1 mux (W_and,W_or,add,less,op,Out);
+endmodule
+
+/* ALU LSB intended for ALU3 */
+module ALUlsb (A,B,b_negate,op,less,C_in,Out,C_out,set);
+  input A,B,b_negate,less,C_in;
+  input [1:0] op;
+  output Out,C_out,set;
+  wire b_invt,W_and,W_or,add,set,overflow;
+  
+  xor (b_invt,b_negate,B);
+  and (W_and,A,b_invt);
+  or (W_or,A,b_invt);
+  fulladder FA (add,C_out,A,b_invt,C_in);
+  mux4_1 mux (W_and,W_or,add,less,op,Out);
+  and (set,add,add);
+  xor(overflow,C_in,C_out);
+endmodule
+
+
+/* 4-bit ALU Master */
+module ALUmaster (ALUctl, A, B, Result, zero, overflow);
+  input [2:0] ALUctl;
+  input [3:0] A,B;
+  output [3:0] Result;
+  output zero,overflow;
+  wire C_out0,C_out1,C_out2,C_out3,set,OF;
+  
+     ALUsub ALU0 (A[0],B[0],ALUctl[2],ALUctl[1:0],set,ALUctl[2],Result[0],C_out0);
+     ALUsub ALU1 (A[1],B[1],ALUctl[2],ALUctl[1:0],1'b0,C_out0,Result[1],C_out1);
+     ALUsub ALU2 (A[2],B[2],ALUctl[2],ALUctl[1:0],1'b0,C_out1,Result[2],C_out2);
+     ALUlsb ALU3 (A[3],B[3],ALUctl[2],ALUctl[1:0],1'b0,C_out2,Result[3],C_out3,set);
+     
+     // Zero calculation
+     nor (zero,Result[0],Result[1],Result[2],Result[3]);    // wire copies of 4 ALU subs
+     // Overflow accounting
+     xor (OF,C_out2,C_out3);
+     and (overflow,ALUctl[1],OF);
+endmodule
+
+/* Test Module */
+module testALU;
+  reg signed [3:0] A;
+  reg signed [3:0] B;
+  reg [2:0] op;
+  wire signed [3:0] Result;
+  wire zero,overflow;
+  ALUmaster alu (op,A,B,Result,zero,overflow);
+  initial
+    begin
+     $display("op  A        B        Result      zero  overflow");
+     $monitor ("%b %b(%d) %b(%d) %b(%d)    %b     %b",op,A,A,B,B,Result,Result,zero,overflow);
+	        op = 3'b000; A = 4'b0111; B = 4'b0010;  // AND
+	    #1 op = 3'b000; A = 4'b0101; B = 4'b0011;   // AND
+	    #1 op = 3'b000; A = 4'b0110; B = 4'b0111;   // AND
+        #1 op = 3'b001; A = 4'b0101; B = 4'b0010;   // OR
+        #1 op = 3'b001; A = 4'b0110; B = 4'b0101;   // OR
+        #1 op = 3'b001; A = 4'b0010; B = 4'b0011;   // OR
+        #1 op = 3'b010; A = 4'b0101; B = 4'b0001;   // ADD
+	    #1 op = 3'b010; A = 4'b0111; B = 4'b0001;   // ADD overflow (7+1=-8)
+	    #1 op = 3'b010; A = 4'b0110; B = 4'b0011;   // ADD overflow (6+3=-7)
+	    #1 op = 3'b110; A = 4'b0101; B = 4'b0001;   // SUB
+	    #1 op = 3'b110; A = 4'b1111; B = 4'b0001;   // SUB
+	    #1 op = 3'b110; A = 4'b1111; B = 4'b1000;   // SUB no overflow (-1-(-8)=7)
+	    #1 op = 3'b110; A = 4'b1110; B = 4'b0111;   // SUB overflow (-2-7=7)
+	    #1 op = 3'b111; A = 4'b0101; B = 4'b0001;   // SLT
+	    #1 op = 3'b111; A = 4'b0001; B = 4'b0011;   // SLT
+	    #1 op = 3'b111; A = 4'b1101; B = 4'b0110;   // SLT overflow (-3-6=7 => SLT=0)
+    end
+endmodule
+
+/* Note: ALU modules provided by instructor but required detailing coded modules by students
+    Test module also provided by instructor but operations required detailing by students
+    All student modules written at gate-level, per instructions
+    ALU and test modules are ONLY modules allowed behavioral instructions
+*/
