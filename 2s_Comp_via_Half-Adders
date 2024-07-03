@@ -1,0 +1,64 @@
+/* Project 1 Part 3: Two's Comp via cascading Half Adders in Verilog HDL
+    Programmer: mjlach
+    CS 354 Spring 2024
+    Prof. Markov
+*/
+
+/* Half Adder Module */
+module half_adder(A,B,S,C);
+    input A,B;
+    output S,C;
+    wire w1,w2,w3;
+    nand n1 (w1,A,B),
+         n2 (w2,A,w1),
+         n3 (w3,w2,B), 
+         n4 (S,w2,w3);
+        // multiple similar gates separated by commas   
+    and a1 (C,A,B);
+        // output, input1, input2
+endmodule
+
+/* Bit Inverter */
+module invert_bits(X,Y);
+    input [2:0] X;
+    output [2:0] Y;
+    not (Y[2], X[2]),
+        (Y[1], X[1]),
+        (Y[0], X[0]); 
+endmodule
+    // tested good
+
+/* Incrementer Module containing 3x Half Adders */
+module inc(A,S);
+    input [2:0] A;
+    output [2:0] S;
+    wire C0,C1,C2; 
+        
+    half_adder HA0 (A[0],1'b1,S[0],C0);
+        // constant binary 1 to increment final value
+    half_adder HA1 (A[1],C0,S[1],C1);
+    half_adder HA2 (A[2],C1,S[2],C2);
+endmodule
+
+module test;
+    reg [2:0] x;
+    reg signed [2:0] signed_b;
+    wire [2:0] a, b;
+    always @* begin
+        signed_b = $signed(b);
+    end
+    invert_bits bi (x, a);
+    inc g (a, b);
+    initial begin
+        $display("Input    Invert       2's Comp");
+        $monitor("%b      %b          %b(%d)", x, a, b, signed_b); 
+        x = 3'b000;
+        #1  x = 3'b001;
+        #1  x = 3'b010;
+        #1  x = 3'b011;
+        #1  x = 3'b100;
+        #1  x = 3'b101;
+        #1  x = 3'b110;
+        #1  x = 3'b111;
+    end
+endmodule;
