@@ -1,0 +1,19 @@
+/* 2x4 Decoder Example Circuit, Gate-Level */
+
+// Gate-Level Decoder implementation
+module decoder_gl (A,B,E,D);
+   input A,B,E;                 // 2 inputs & an Enable
+   output [0:3]D;               // 4-bit output, 0,1,2,3
+   wire Anot,Bnot,Enot;         // Wires to pipe inverted inputs
+   not                          // NOT gates detailed
+   // name (output, input)
+      n1 (Anot,A),
+      n2 (Bnot,B),
+      n3 (Enot,E);
+   nand                         // NAND gates detailed
+   // name (output, inputs)
+      n4 (D[0],Anot,Bnot,Enot),
+      n5 (D[1],Anot,B,Enot),
+      n6 (D[2],A,Bnot,Enot),
+      n7 (D[3],A,B,Enot);
+endmodule
